@@ -1,0 +1,246 @@
+Pix4D report.xml + P1 매뉴얼 기준:
+
+센서: 8192 × 5460 px
+
+픽셀 사이즈: 4.27246 µm = 4.27246e-3 mm
+
+보정 초점거리: 35.1338 mm
+
+픽셀 단위 초점거리:
+
+𝑓
+𝑥
+≈
+𝑓
+𝑦
+≈
+35.1338
+0.00427246
+≈
+8223
+ px
+f
+x
+	​
+
+≈f
+y
+	​
+
+≈
+0.00427246
+35.1338
+	​
+
+≈8223 px
+
+화각:
+
+FOV
+𝑥
+=
+2
+arctan
+⁡
+(
+8192
+/
+2
+𝑓
+𝑥
+)
+≈
+53.6
+∘
+FOV
+x
+	​
+
+=2arctan(
+f
+x
+	​
+
+8192/2
+	​
+
+)≈53.6
+∘
+FOV
+𝑦
+=
+2
+arctan
+⁡
+(
+5460
+/
+2
+𝑓
+𝑥
+)
+≈
+37.0
+∘
+FOV
+y
+	​
+
+=2arctan(
+f
+x
+	​
+
+5460/2
+	​
+
+)≈37.0
+∘
+
+또는 DJI 매뉴얼에 있는 값:
+
+수평 화각 ≈ 53.63°
+
+수직 화각 ≈ 36.96°
+
+대각선 화각 ≈ 63° 근처
+
+따라서 “P1 화각 44도”는 맞지 않다.
+수평 기준은 약 53.6°, 수직은 약 37°, 대각선은 약 63°로 보는 게 맞다.
+
+이 값으로 footprint FOV 설정해라:
+
+요약 – 지금 당장 해야 하는 것
+
+camera_calibration.py에서 P1 화각을
+
+FOV_X_DEG = 53.63
+
+FOV_Y_DEG = 36.96
+으로 고정.
+
+compute_camera_footprint()를 위 코드처럼 수정해서
+
+altitude = FLIGHT_ALT_BY_SITE[site_name]
+
+margin 기본값 = ???? 0 
+으로 사용.
+
+part3_forward_pixelwise.py에서 Z-필터링 블록을 제거(또는 완전 주석 처리).
+
+이 세 가지를 적용하면:
+
+Site B 기준 footprint 크기가 정상적인 1cm GSD 수준으로 줄어들고
+
+FOOTPRINT_POINT_THRESHOLD를 넘어서 스킵되던 이미지들이 실제로 처리되기 시작하고
+
+forward_votes.npy 안에 0만 찍히던 현상은 사라져야 한다.
+
+먼저 이 상태로 한 번 돌려서:
+
+로그에 각 이미지 footprint 포인트 수 분포
+
+처리/스킵 비율
+
+forward_votes 기본 통계 (min/max/mean)
+
+을 확인해라.
+그 다음 단계부터는 필요하면 footprint를 “4 코너 ray–ground plane 교차 기반 polygon”으로 세분화하는 쪽으로 넘어가면 된다.
+
+Site A – P4R 내장 카메라 화각
+
+P4R_Site_A_report.xml 기준 카메라 내부 파라미터:
+
+imageWidth = 5472 px
+
+imageHeight = 3648 px
+
+pixelSize = 2.34527 µm
+
+focalLength = 8.6604 mm (optimized)
+
+핀홀 모델에서 FOV 계산식은:
+
+수평 FOV:
+
+FOV
+𝑥
+=
+2
+⋅
+arctan
+⁡
+(
+sensor_width
+2
+𝑓
+)
+FOV
+x
+	​
+
+=2⋅arctan(
+2f
+sensor_width
+	​
+
+)
+
+수직 FOV:
+
+FOV
+𝑦
+=
+2
+⋅
+arctan
+⁡
+(
+sensor_height
+2
+𝑓
+)
+FOV
+y
+	​
+
+=2⋅arctan(
+2f
+sensor_height
+	​
+
+)
+
+여기서
+sensor_width = 5472 × 2.34527 µm = 약 12.835 mm
+sensor_height = 3648 × 2.34527 µm = 약 8.556 mm
+
+계산 결과:
+
+수평 FOV_x ≈ 73.1°
+
+수직 FOV_y ≈ 52.6°
+
+대각 FOV_diag ≈ 83.4°
+
+즉, Site A의 P4R 내장 카메라는
+
+H ≈ 73° / V ≈ 53° / D ≈ 83°
+
+정도로 쓰면 된다.
+
+2. 코드에 어떻게 넣을지
+
+지금 파이프라인 구조상:
+
+fov_x = 2 * np.arctan(width / (2 * fx))
+fov_y = 2 * np.arctan(height / (2 * fy))
+이렇게 fx, fy와 width, height에서 자동으로 FOV를 뽑는다. 따라서
+P4R용 IOP에 fx, fy만 제대로 넣어두면
+Site A/B/C 전부 같은 FOV(≈73° / 53°)로 쓰이게 된다.
+만약 상수로 고정해서 쓰고 싶으면(디버깅용 등):
+python
+코드 복사
+P4R_FOV_H_deg = 73.07
+P4R_FOV_V_deg = 52.57
+이 값으로 고정해도 된다.

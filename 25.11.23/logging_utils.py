@@ -32,7 +32,11 @@ def setup_logger(
     """
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    
+
+    # 동일 로거를 여러 번 설정하더라도 핸들러가 중복되지 않도록 정리
+    if logger.handlers:
+        logger.handlers.clear()
+
     # 포맷 설정
     if format_string is None:
         format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
